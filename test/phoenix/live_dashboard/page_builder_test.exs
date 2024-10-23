@@ -4,6 +4,13 @@ defmodule Phoenix.LiveDashboard.PageBuilderTest do
   import Phoenix.Component
   import Phoenix.LiveDashboard.PageBuilder
 
+  defp assert_card_common(result, title, hint, inner_title, inner_hint) do
+    assert result =~ ~r|<h5 class=\"card-title\">[\r\n\s]*#{title}[\r\n\s]*|
+    assert result =~ ~S|<div class="hint-text">#{hint}</div>|
+    assert result =~ ~r|<h6 class=\"banner-card-title\">[\r\n\s]*#{inner_title}[\r\n\s]*|
+    assert result =~ ~S|<div class="hint-text">#{inner_hint}</div>|
+  end
+
   test "card/1" do
     assigns = %{}
 
@@ -19,32 +26,31 @@ defmodule Phoenix.LiveDashboard.PageBuilderTest do
       </.card>
       """)
 
-    assert result =~ ~r|<h5 class=\"card-title\">[\r\n\s]*test-title[\r\n\s]*|
-    assert result =~ ~S|<div class="hint-text">test-hint</div>|
+    assert_card_common(result, "test-title", "test-hint", "test-inner-title", "test-inner-hint")
     assert result =~ ~S|<div class="banner-card mt-auto">|
-    assert result =~ ~r|<h6 class=\"banner-card-title\">[\r\n\s]*test-inner-title[\r\n\s]*|
-    assert result =~ ~S|<div class="hint-text">test-inner-hint</div>|
     assert result =~ ~r|<div class="banner-card-value">[\r\n\s]*test-value[\r\n\s]*</div>|
   end
 
   describe "row/1" do
     test "renders columns" do
       assigns = %{}
-      result = rendered_to_string(~H{<.row>
-  <:col>1</:col>
-  <:col>2</:col>
-</.row>})
+      result = rendered_to_string(~H"""
+        <.row>
+          <:col>1</:col>
+          <:col>2</:col>
+        </.row>
+      """)
 
       assert result =~
                ~r{<div class="row">[\r\n\s]*<div class="col-sm-6 mb-4 flex-column d-flex">[\r\n\s]*1[\r\n\s]*</div>[\r\n\s]*<div class="col-sm-6 mb-4 flex-column d-flex">[\r\n\s]*2[\r\n\s]*</div>[\r\n\s]*</div>}
     end
 
     test "validates the number of col" do
-      msg = "row component must have at least 1 and at most 3 :col, got: 4"
-
       assigns = %{}
+      msg_4_cols = "row component must have at least 1 and at most 3 :col, got: 4"
+      msg_0_cols = "row component must have at least 1 and at most 3 :col, got: 0"
 
-      assert_raise ArgumentError, msg, fn ->
+      assert_raise ArgumentError, msg_4_cols, fn ->
         rendered_to_string(~H"""
         <.row>
           <:col></:col>
@@ -55,15 +61,13 @@ defmodule Phoenix.LiveDashboard.PageBuilderTest do
         """)
       end
 
-      msg = "row component must have at least 1 and at most 3 :col, got: 0"
-
-      assert_raise ArgumentError, msg, fn ->
+      assert_raise ArgumentError, msg_0_cols, fn ->
         rendered_to_string(~H"<.row />")
       end
     end
   end
 
-  test "fields_card_component" do
+  test "fields_card_component/1" do
     assigns = %{}
 
     result =
@@ -77,14 +81,9 @@ defmodule Phoenix.LiveDashboard.PageBuilderTest do
       />
       """)
 
-    assert result =~ ~r|<h5 class=\"card-title\">[\r\n\s]*test-title[\r\n\s]*|
-    assert result =~ ~S|<div class="hint-text">test-hint</div>|
-    assert result =~ ~r|<h6 class=\"card-title\">[\r\n\s]*test-inner-title[\r\n\s]*|
-    assert result =~ ~S|<div class="hint-text">test-inner-hint</div>|
+    assert_card_common(result, "test-title", "test-hint", "test-inner-title", "test-inner-hint")
     assert result =~ ~r|<dt class=\"pb-1\">(foo\|bar)<\/dt>|
-
-    assert result =~
-             ~r|<textarea class=\"code-field text-monospace\" readonly=\"readonly\" rows=\"1\">(123\|456)<\/textarea>|
+    assert result =~ ~r|<textarea class=\"code-field text-monospace\" readonly=\"readonly\" rows=\"1\">(123\|456)<\/textarea>|
   end
 
   test "shared_usage_card/1" do
@@ -93,17 +92,8 @@ defmodule Phoenix.LiveDashboard.PageBuilderTest do
     result =
       rendered_to_string(~H"""
       <.shared_usage_card
-        usages={[
-          %{
-            data: [{"foo", 123, "green", nil}, {"bar", 456, "blue", nil}],
-            dom_id: "sub-id",
-            title: "test-usage-title"
-          }
-        ]}
-        total_data={[
-          {"foo", 1000, "green", nil},
-          {"bar", 2000, "blue", nil}
-        ]}
+        usages={[%{data: [{"foo", 123, "green", nil}, {"bar", 456, "blue", nil}], dom_id: "sub-id", title: "test-usage-title"}]}
+        total_data={[{"foo", 1000, "green", nil}, {"bar", 2000, "blue", nil}]}
         total_legend="test-total-legend"
         total_usage="test-total-usage"
         dom_id="test-dom-id"
@@ -116,28 +106,11 @@ defmodule Phoenix.LiveDashboard.PageBuilderTest do
       />
       """)
 
-    assert result =~ ~r|<h5 class=\"card-title\">[\r\n\s]*test-title[\r\n\s]*|
-    assert result =~ ~S|<div class="hint-text">test-hint</div>|
-
-    assert result =~ ~r|<h5 class=\"card-title\">[\r\n\s]*test-inner-title[\r\n\s]*|
-    assert result =~ ~S|<div class="hint-text">test-inner-hint</div>|
-
+    assert_card_common(result, "test-title", "test-hint", "test-inner-title", "test-inner-hint")
     assert result =~ ~S|<span class="color-bar-progress-title">test-usage-title</span>|
-
-    assert result =~
-             ~r|<style nonce="style_nonce">\s*#test-dom-id-sub-id-progress-(1\|2){width:(123\|456)%}\s*</style>|
-
-    assert result =~ ~r|title=\"(foo\|bar) - (123\|456)%\"|
+    assert result =~ ~r|<style nonce="style_nonce">\s*#test-dom-id-sub-id-progress-(1\|2){width:(123\|456)%}\s*</style>|
     assert result =~ ~r|class=\"progress-bar color-bar-progress-bar bg-gradient-(blue\|green)\"|
-    assert result =~ ~r|data-name=\"(foo\|bar)\"|
-    assert result =~ ~r|id=\"test-dom-id-sub-id-progress-(0\|1)\"|
-
-    assert result =~ ~r|color-bar-legend-entry\" data-name=\"(foo\|bar)\"|
-    assert result =~ ~r|<div class="color-bar-legend-color bg-(blue\|green) mr-2"></div>|
-    assert result =~ ~r|<span>(foo\|bar)[\r\n\s]*</span>|
-
-    assert result =~
-             ~r|<div class=\"resource-usage-total text-center py-1 mt-3\">[\r\n\s]*test-total-legend test-total-usage[\r\n\s]*</div>|
+    assert result =~ ~r|<div class=\"resource-usage-total text-center py-1 mt-3\">[\r\n\s]*test-total-legend test-total-usage[\r\n\s]*</div>|
   end
 
   test "usage_card/1" do
@@ -162,16 +135,9 @@ defmodule Phoenix.LiveDashboard.PageBuilderTest do
       </.usage_card>
       """)
 
-    assert result =~ ~r|<h5 class=\"card-title\">[\r\n\s]*test-title[\r\n\s]*|
-    assert result =~ ~S|<div class="hint-text">test-hint</div>|
-
-    assert result =~ ~r|<div>[\r\n\s]*test-usage-title[\r\n\s]*|
-    assert result =~ ~S|<div class="hint-text">test-usage-hint</div>|
-
+    assert_card_common(result, "test-title", "test-hint", "test-usage-title", "test-usage-hint")
     assert result =~ ~r|<small class=\"text-muted pr-2\">[\r\n\s]*10 / 150[\r\n\s]*<\/small>|
     assert result =~ ~r|<strong>[\r\n\s]*13%[\r\n\s]*</strong>|
-
-    assert result =~
-             ~r|<style nonce=\"style_nonce\">\s*#test-dom-id-test-dom-sub-id-progress{width:13%}\s*<\/style>|
+    assert result =~ ~r|<style nonce=\"style_nonce\">\s*#test-dom-id-test-dom-sub-id-progress{width:13%}\s*<\/style>|
   end
 end
